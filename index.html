@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The Migrant Map — Sabores del Mundo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  background: #f5efe6;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ── CANVAS ── */
+#map-svg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+/* ── GRAIN TEXTURE ── */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  opacity: 0.5;
+}
+
+/* ── HEADER ── */
+.hdr {
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 20;
+  padding: clamp(12px,2vw,22px) clamp(14px,2.5vw,26px);
+  max-width: min(460px, 52vw);
+  pointer-events: none;
+}
+.hdr-glass {
+  background: rgba(245,239,230,0.84);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border: 1px solid rgba(160,120,60,0.14);
+  border-radius: 14px;
+  padding: clamp(11px,1.6vw,17px) clamp(13px,2vw,21px);
+}
+.eyebrow {
+  font-size: clamp(7.5px,0.85vw,9.5px);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: #a89070;
+  margin-bottom: 7px;
+  display: flex; align-items: center; gap: 9px;
+}
+.eyebrow::after { content:''; display:block; width:22px; height:1px; background:#c8a878; }
+.hdr h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(17px,2vw,28px);
+  font-weight: 300; line-height: 1.25;
+  color: #2c1f10;
+}
+.hdr h1 em { font-style: italic; color: #7a6040; }
+.hdr p {
+  font-size: clamp(9.5px,0.95vw,11.5px);
+  color: #9a8060; margin-top: 5px;
+  line-height: 1.6; font-weight: 300;
+}
+
+/* ── SIDE PANEL ── */
+.panel {
+  position: fixed;
+  top: 50%; right: clamp(10px,1.8vw,22px);
+  transform: translateY(-50%);
+  z-index: 20;
+  width: clamp(168px,17vw,208px);
+  background: rgba(245,239,230,0.88);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgba(160,120,60,0.14);
+  border-radius: 16px;
+  padding: clamp(13px,1.6vw,19px) clamp(11px,1.4vw,17px);
+  display: flex; flex-direction: column;
+}
+.p-label {
+  font-size: clamp(7.5px,0.82vw,9px);
+  letter-spacing: .2em; text-transform: uppercase;
+  color: #a89070; margin-bottom: 11px;
+}
+.btn {
+  width: 100%;
+  padding: clamp(9px,1.1vw,13px) clamp(9px,1.1vw,13px);
+  border-radius: 10px;
+  border: 1px solid rgba(160,100,60,0.13);
+  background: rgba(160,100,60,0.03);
+  cursor: pointer; text-align: left; margin-bottom: 8px;
+  transition: all .22s ease;
+  font-family: 'DM Sans', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Picante-card red for "vengo de" */
+.btn.picante { }
+.btn.picante:hover, .btn.picante.on {
+  border-color: rgba(196,65,40,0.45);
+  background: rgba(196,65,40,0.07);
+}
+
+/* Rico-card gold for "voy a" */
+.btn.rico:hover, .btn.rico.on {
+  border-color: rgba(196,152,55,0.45);
+  background: rgba(196,152,55,0.08);
+}
+
+.btn-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  display: inline-block; margin-bottom: 6px;
+}
+.btn.picante .btn-dot {
+  background: #c44128;
+  box-shadow: 0 0 8px rgba(196,65,40,0.55);
+}
+.btn.rico .btn-dot {
+  background: #c49837;
+  box-shadow: 0 0 8px rgba(196,152,55,0.55);
+}
+.btn-main {
+  display: block;
+  font-size: clamp(9.5px,0.95vw,11px);
+  font-weight: 500; line-height: 1.4;
+}
+.btn.picante .btn-main { color: #c44128; }
+.btn.rico .btn-main    { color: #a07820; }
+.btn-sub {
+  display: block;
+  font-size: clamp(9.5px,0.95vw,12px);
+  color: #9a8060; margin-top: 2px;
+  font-style: italic;
+  font-family: 'Cormorant Garamond', serif;
+}
+.div { height:1px; background:rgba(160,120,60,0.12); margin:11px 0; }
+.leg-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 7px;
+  font-size: clamp(8.5px,0.88vw,10px);
+  color: #9a8060;
+}
+.leg-ln { width: 18px; height: 1.5px; border-radius: 1px; flex-shrink: 0; }
+.stats { margin-top: 11px; }
+.stat { margin-bottom: 9px; }
+.stat-n {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(22px,2.2vw,30px);
+  font-weight: 300; line-height: 1;
+}
+.stat-n.pic { color: #c44128; }
+.stat-n.ric { color: #a07820; }
+.stat-l {
+  font-size: clamp(7.5px,0.82vw,9px);
+  color: #a89070; margin-top: 2px;
+  letter-spacing: .04em;
+}
+
+/* ── STATUS ── */
+.status {
+  position: fixed;
+  bottom: clamp(12px,2.2vh,22px);
+  left: 50%; transform: translateX(-50%);
+  z-index: 20;
+  background: rgba(245,239,230,0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(160,120,60,0.14);
+  border-radius: 50px;
+  padding: 6px 18px;
+  font-size: clamp(9.5px,0.95vw,11px);
+  color: #9a8060;
+  pointer-events: none;
+  transition: all .25s ease;
+  white-space: nowrap;
+}
+.status.pic { border-color: rgba(196,65,40,0.4); color: #c44128; }
+.status.ric { border-color: rgba(196,152,55,0.4); color: #a07820; }
+
+/* ── TOOLTIP ── */
+#tip {
+  position: fixed; z-index: 30;
+  background: rgba(245,239,230,0.97);
+  border: 1px solid rgba(160,120,60,0.16);
+  border-radius: 9px;
+  padding: 8px 13px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(9.5px,0.95vw,11px);
+  color: #2c1f10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s ease;
+  white-space: nowrap;
+  box-shadow: 0 6px 24px rgba(100,60,20,0.1);
+  max-width: 230px;
+}
+#tip .tm { font-weight: 500; margin-bottom: 2px; }
+#tip .ts { color: #9a8060; font-style: italic; font-family: 'Cormorant Garamond', serif; font-size: clamp(10.5px,1.05vw,13px); }
+
+/* ── MOBILE ── */
+@media (max-width: 640px) {
+  .hdr { max-width: calc(100vw - 20px); }
+  .panel {
+    top: auto; right: auto; bottom: clamp(46px,9vh,66px);
+    left: 50%; transform: translateX(-50%);
+    width: calc(100vw - 28px); max-width: 390px;
+    flex-direction: row; flex-wrap: wrap;
+    padding: 11px 13px 10px;
+  }
+  .p-label { width: 100%; margin-bottom: 7px; }
+  .btn { width: calc(50% - 5px); margin-bottom: 0; }
+  .btn:first-of-type { margin-right: 10px; }
+  .div, .leg-row, .stats { display: none; }
+  .status { bottom: clamp(10px,1.8vh,16px); font-size: 9.5px; padding: 5px 13px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Map SVG — geography drawn here by D3 -->
+<svg id="map-svg"></svg>
+
+<!-- Header -->
+<div class="hdr">
+  <div class="hdr-glass">
+    <div class="eyebrow">Community Migration Archive · Sabores del Mundo</div>
+    <h1>The Migrant Map<br><em>Share Your Journey</em></h1>
+    <p>Whether across an ocean or across town — everyone has a story. <em>Todos tenemos una historia.</em></p>
+  </div>
+</div>
+
+<!-- Panel -->
+<div class="panel">
+  <div class="p-label">Add your story</div>
+  <button class="btn picante" id="btn-from">
+    <span class="btn-dot"></span>
+    <span class="btn-main">I come from…</span>
+    <span class="btn-sub">Yo vengo de…</span>
+  </button>
+  <button class="btn rico" id="btn-to">
+    <span class="btn-dot"></span>
+    <span class="btn-main">I am going to…</span>
+    <span class="btn-sub">Yo voy a…</span>
+  </button>
+  <div class="div"></div>
+  <div class="p-label">Legend</div>
+  <div class="leg-row">
+    <span class="leg-ln" style="background:linear-gradient(90deg,#c44128,#e8340b)"></span>
+    Origins (vengo de)
+  </div>
+  <div class="leg-row">
+    <span class="leg-ln" style="background:linear-gradient(90deg,#c49837,#d4a843)"></span>
+    Destinations (voy a)
+  </div>
+  <div class="leg-row">
+    <span class="leg-ln" style="background:rgba(160,120,60,0.35)"></span>
+    Community paths
+  </div>
+  <div class="div"></div>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-n pic" id="cnt-f">14</div>
+      <div class="stat-l">Origins mapped</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n ric" id="cnt-t">9</div>
+      <div class="stat-l">Destinations shared</div>
+    </div>
+  </div>
+</div>
+
+<!-- Status -->
+<div class="status" id="status-bar">Hover nodes · tap a button to begin</div>
+
+<!-- Tooltip -->
+<div id="tip">
+  <div class="tm" id="tt-m"></div>
+  <div class="ts" id="tt-s"></div>
+</div>
+
+<!-- D3 + TopoJSON from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+
+<script>
+(function () {
+
+// ── COLOR SYSTEM (Sabores palette) ────────────────────────────────────────
+const PAL = {
+  ocean:      '#f5efe6',   // warm off-white cream
+  land:       '#f2d8c8',   // Dulce pastel pink-rose
+  landStroke: '#e0b89a',   // slightly deeper border
+  landHov:    '#efc4b0',
+  // Picante card → "vengo de" arcs (coral → deep red)
+  fromCol:    '#c44128',
+  fromGrad:   ['#ff6b1a','#e8340b','#8b0a0a'],
+  // Rico card → "voy a" arcs (amber → gold)
+  toCol:      '#c49837',
+  toGrad:     ['#d4a843','#a07020','#5c3d0a'],
+  // Sydney hub
+  hub:        '#c9a84c',
+  // Historical muted
+  hist:       'rgba(180,130,80,0.28)',
+};
+
+// ── CONSTANTS ────────────────────────────────────────────────────────────
+const SYD = {
+  lat: -33.865, lon: 151.209,
+  label: 'Sydney, Australia',
+  sub: 'Sídney — punto de encuentro',
+};
+
+// ── STATE ────────────────────────────────────────────────────────────────
+let mode = null, fCnt = 14, tCnt = 9;
+let projection, path;
+const userArcs = [];
+const tip   = document.getElementById('tip');
+const ttm   = document.getElementById('tt-m');
+const tts   = document.getElementById('tt-s');
+const stBar = document.getElementById('status-bar');
+
+// ── HISTORICAL COMMUNITY NODES ───────────────────────────────────────────
+const hist = [
+  { lat:51.5,   lon:-0.12,  label:'London, UK',        sub:'Londres, Reino Unido',     dir:'from' },
+  { lat:19.43,  lon:-99.13, label:'Mexico City',        sub:'Ciudad de México',         dir:'from' },
+  { lat:28.61,  lon:77.21,  label:'New Delhi, India',   sub:'Nueva Delhi, India',       dir:'from' },
+  { lat:31.23,  lon:121.47, label:'Shanghai, China',    sub:'Shanghái, China',          dir:'from' },
+  { lat:-23.55, lon:-46.63, label:'São Paulo, Brazil',  sub:'São Paulo, Brasil',        dir:'from' },
+  { lat:40.71,  lon:-74.01, label:'New York, USA',      sub:'Nueva York, EE.UU.',       dir:'from' },
+  { lat:3.14,   lon:101.69, label:'Kuala Lumpur',       sub:'Kuala Lumpur, Malasia',    dir:'from' },
+  { lat:14.69,  lon:17.44,  label:'Dakar, Senegal',     sub:'Dakar, Senegal',           dir:'from' },
+  { lat:55.75,  lon:37.62,  label:'Moscow, Russia',     sub:'Moscú, Rusia',             dir:'from' },
+  { lat:-1.29,  lon:36.82,  label:'Nairobi, Kenya',     sub:'Nairobi, Kenia',           dir:'from' },
+  { lat:35.68,  lon:139.69, label:'Tokyo, Japan',       sub:'Tokio, Japón',             dir:'to'   },
+  { lat:48.85,  lon:2.35,   label:'Paris, France',      sub:'París, Francia',           dir:'to'   },
+  { lat:-34.61, lon:-58.37, label:'Buenos Aires',       sub:'Buenos Aires, Argentina',  dir:'to'   },
+  { lat:1.35,   lon:103.82, label:'Singapore',          sub:'Singapur',                 dir:'to'   },
+  { lat:41.01,  lon:28.98,  label:'Istanbul, Turkey',   sub:'Estambul, Turquía',        dir:'to'   },
+];
+
+// ── SVG SETUP ────────────────────────────────────────────────────────────
+const svg = d3.select('#map-svg');
+
+// Gradient defs for arc strokes
+const defs = svg.append('defs');
+
+// Picante arc gradient (coral → deep red)
+const gFrom = defs.append('linearGradient')
+  .attr('id','grad-from').attr('gradientUnits','userSpaceOnUse');
+gFrom.append('stop').attr('offset','0%').attr('stop-color','#ff6b1a');
+gFrom.append('stop').attr('offset','50%').attr('stop-color','#e8340b');
+gFrom.append('stop').attr('offset','100%').attr('stop-color','#8b0a0a');
+
+// Rico arc gradient (amber → gold)
+const gTo = defs.append('linearGradient')
+  .attr('id','grad-to').attr('gradientUnits','userSpaceOnUse');
+gTo.append('stop').attr('offset','0%').attr('stop-color','#d4a843');
+gTo.append('stop').attr('offset','50%').attr('stop-color','#a07020');
+gTo.append('stop').attr('offset','100%').attr('stop-color','#c9853a');
+
+// Layer groups (draw order)
+const gGrat  = svg.append('g').attr('id','graticules');
+const gLand  = svg.append('g').attr('id','land');
+const gArcs  = svg.append('g').attr('id','arcs');
+const gNodes = svg.append('g').attr('id','nodes');
+
+// ── ANIMATED ARC DRAWING ──────────────────────────────────────────────────
+// Returns SVG cubic-bezier arc path string between two [lon,lat] points
+function arcPath(p1lon, p1lat, p2lon, p2lat) {
+  const s = projection([p1lon, p1lat]);
+  const e = projection([p2lon, p2lat]);
+  if (!s || !e) return null;
+  const dx = e[0]-s[0], dy = e[1]-s[1];
+  const len = Math.sqrt(dx*dx+dy*dy);
+  const lift = Math.min(len * 0.38, window.innerHeight * 0.28);
+  const mx = (s[0]+e[0])/2 - dy*lift/len;
+  const my = (s[1]+e[1])/2 - Math.abs(dx)*lift/len;
+  return `M${s[0]},${s[1]} Q${mx},${my} ${e[0]},${e[1]}`;
+}
+
+function animateArc(pathEl, duration) {
+  const len = pathEl.node().getTotalLength();
+  pathEl
+    .attr('stroke-dasharray', len)
+    .attr('stroke-dashoffset', len)
+    .transition()
+    .duration(duration)
+    .ease(d3.easeCubicInOut)
+    .attr('stroke-dashoffset', 0);
+}
+
+function updateGradientCoords(gradId, p1lon, p1lat, p2lon, p2lat) {
+  const s = projection([p1lon, p1lat]);
+  const e = projection([p2lon, p2lat]);
+  if (!s || !e) return;
+  d3.select('#'+gradId)
+    .attr('x1', s[0]).attr('y1', s[1])
+    .attr('x2', e[0]).attr('y2', e[1]);
+}
+
+// ── DRAW ALL ARCS ─────────────────────────────────────────────────────────
+function drawHistoricalArcs() {
+  hist.forEach((n, i) => {
+    const lon1 = n.dir==='from' ? n.lon : SYD.lon;
+    const lat1 = n.dir==='from' ? n.lat : SYD.lat;
+    const lon2 = n.dir==='from' ? SYD.lon : n.lon;
+    const lat2 = n.dir==='from' ? SYD.lat : n.lat;
+    const d = arcPath(lon1, lat1, lon2, lat2);
+    if (!d) return;
+
+    const el = gArcs.append('path')
+      .attr('d', d)
+      .attr('fill', 'none')
+      .attr('stroke', PAL.hist)
+      .attr('stroke-width', 0.85)
+      .attr('stroke-linecap', 'round');
+
+    // Stagger reveal
+    setTimeout(() => animateArc(el, 1600), i * 200);
+  });
+}
+
+function addUserArc(lon, lat, lbl) {
+  const isFrom = mode === 'from';
+  const lon1 = isFrom ? lon : SYD.lon;
+  const lat1 = isFrom ? lat : SYD.lat;
+  const lon2 = isFrom ? SYD.lon : lon;
+  const lat2 = isFrom ? SYD.lat : lat;
+  const d = arcPath(lon1, lat1, lon2, lat2);
+  if (!d) return;
+
+  // Update gradient coords to match this arc's direction
+  const gradId = isFrom ? 'grad-from' : 'grad-to';
+  updateGradientCoords(gradId, lon1, lat1, lon2, lat2);
+
+  const el = gArcs.append('path')
+    .attr('d', d)
+    .attr('fill', 'none')
+    .attr('stroke', `url(#${gradId})`)
+    .attr('stroke-width', 1.7)
+    .attr('stroke-linecap', 'round')
+    .attr('opacity', 0.88);
+
+  animateArc(el, 1500);
+
+  // Drop node
+  const [px, py] = isFrom ? projection([lon, lat]) : projection([lon, lat]);
+  drawUserNode(px, py, isFrom ? PAL.fromCol : PAL.toCol, lbl.n, lbl.s);
+}
+
+// ── NODES ──────────────────────────────────────────────────────────────────
+function drawUserNode(px, py, col, label, sub) {
+  const g = gNodes.append('g')
+    .attr('transform', `translate(${px},${py})`)
+    .attr('class', 'map-node')
+    .style('cursor', 'pointer');
+
+  // Glow ring
+  g.append('circle').attr('r', 10).attr('fill', col).attr('opacity', 0.1);
+  g.append('circle').attr('r', 6).attr('fill', 'none').attr('stroke', col).attr('stroke-width', 0.8).attr('opacity', 0.35);
+  g.append('circle').attr('r', 3.5).attr('fill', col);
+
+  // Pulse animation
+  g.select('circle:first-child')
+    .append('animate')
+    .attr('attributeName','r').attr('values','8;14;8').attr('dur','3s').attr('repeatCount','indefinite');
+  g.select('circle:first-child')
+    .append('animate')
+    .attr('attributeName','opacity').attr('values','0.12;0;0.12').attr('dur','3s').attr('repeatCount','indefinite');
+
+  addNodeTooltip(g, label, sub);
+}
+
+function addNodeTooltip(g, label, sub) {
+  g.on('mouseenter', (event) => {
+    ttm.textContent = label;
+    tts.textContent = sub || '';
+    tip.style.opacity = '1';
+    const tx = Math.min(event.clientX + 16, window.innerWidth - 240);
+    const ty = Math.max(event.clientY - 50, 8);
+    tip.style.left = tx + 'px';
+    tip.style.top  = ty + 'px';
+  }).on('mouseleave', () => { tip.style.opacity = '0'; });
+}
+
+// ── DRAW HISTORICAL NODES ─────────────────────────────────────────────────
+function drawHistNodes() {
+  // Sydney hub
+  const [sx, sy] = projection([SYD.lon, SYD.lat]);
+  const hub = gNodes.append('g')
+    .attr('transform', `translate(${sx},${sy})`)
+    .style('cursor','pointer');
+  hub.append('circle').attr('r', 14).attr('fill', PAL.hub).attr('opacity', 0.1);
+  hub.append('circle').attr('r', 9).attr('fill', 'none').attr('stroke', PAL.hub).attr('stroke-width', 1.2).attr('opacity', 0.5);
+  hub.append('circle').attr('r', 5).attr('fill', PAL.hub);
+  addNodeTooltip(hub, SYD.label, SYD.sub);
+
+  // Community nodes
+  hist.forEach(n => {
+    const [px, py] = projection([n.lon, n.lat]);
+    const col = n.dir === 'from' ? PAL.fromCol : PAL.toCol;
+    const g = gNodes.append('g')
+      .attr('transform', `translate(${px},${py})`)
+      .style('cursor','pointer');
+    g.append('circle').attr('r', 8).attr('fill', col).attr('opacity', 0.08);
+    g.append('circle').attr('r', 5).attr('fill', 'none').attr('stroke', col).attr('stroke-width', 0.7).attr('opacity', 0.3);
+    g.append('circle').attr('r', 2.8).attr('fill', col).attr('opacity', 0.55);
+    addNodeTooltip(g, n.label, n.sub);
+  });
+}
+
+// ── GEO LABEL ────────────────────────────────────────────────────────────
+function geoLbl(lat, lon) {
+  if (lat>55  && lon>-10 && lon<40)  return { n:'Northern Europe',             s:'Norte de Europa' };
+  if (lat>35  && lon>-15 && lon<40)  return { n:'Europe',                      s:'Europa' };
+  if (lat>-5  && lat<35  && lon>-20 && lon<55) return { n:'North Africa / Middle East', s:'Norte de África / Oriente Medio' };
+  if (lat<-5  && lon>-20 && lon<55)  return { n:'Sub-Saharan Africa',           s:'África Subsahariana' };
+  if (lat>20  && lon>55  && lon<100) return { n:'South Asia',                   s:'Asia del Sur' };
+  if (lat>20  && lon>100 && lon<145) return { n:'East Asia',                    s:'Asia Oriental' };
+  if (lat<20  && lat>-10 && lon>90 && lon<145) return { n:'Southeast Asia',    s:'Asia Sudoriental' };
+  if (lat>50  && lon>40)             return { n:'Russia / Central Asia',        s:'Rusia / Asia Central' };
+  if (lat>25  && lon<-60 && lon>-130) return { n:'North America',              s:'Norteamérica' };
+  if (lat<25  && lat>-5  && lon<-60) return { n:'Central America',             s:'Centroamérica' };
+  if (lat<-5  && lon<-30)            return { n:'South America',               s:'Sudamérica' };
+  if (lat<-10 && lon>110 && lon<160) return { n:'Australia / Oceania',         s:'Australia / Oceanía' };
+  if (lat>60  && lon<-60)            return { n:'Canada / Arctic',             s:'Canadá / Ártico' };
+  return { n:`${Math.abs(lat).toFixed(1)}°${lat>0?'N':'S'}, ${Math.abs(lon).toFixed(1)}°${lon>0?'E':'W'}`, s:'Location pinned' };
+}
+
+// ── SETUP PROJECTION & RESIZE ────────────────────────────────────────────
+function setupProjection() {
+  const W = window.innerWidth, H = window.innerHeight;
+  projection = d3.geoNaturalEarth1()
+    .scale(Math.min(W / 6.2, H / 3.6))
+    .translate([W / 2, H / 2]);
+  path = d3.geoPath().projection(projection);
+}
+
+// ── RENDER GEOGRAPHY ──────────────────────────────────────────────────────
+function renderGeo(world) {
+  // Ocean background
+  svg.style('background', PAL.ocean);
+
+  // Graticule grid
+  gGrat.selectAll('*').remove();
+  const graticule = d3.geoGraticule().step([20, 20]);
+  gGrat.append('path')
+    .datum(graticule())
+    .attr('d', path)
+    .attr('fill','none')
+    .attr('stroke','rgba(160,120,60,0.09)')
+    .attr('stroke-width', 0.45);
+
+  // Globe outline
+  gGrat.append('path')
+    .datum({type:'Sphere'})
+    .attr('d', path)
+    .attr('fill', 'none')
+    .attr('stroke','rgba(160,120,60,0.12)')
+    .attr('stroke-width', 0.6);
+
+  // Land (Dulce pastel rose / Rico ochre)
+  gLand.selectAll('*').remove();
+  const countries = topojson.feature(world, world.objects.countries);
+  gLand.selectAll('path')
+    .data(countries.features)
+    .join('path')
+    .attr('d', path)
+    .attr('fill', PAL.land)
+    .attr('stroke', PAL.landStroke)
+    .attr('stroke-width', 0.5)
+    .attr('stroke-linejoin','round')
+    .on('mouseenter', function() {
+      d3.select(this).attr('fill', PAL.landHov);
+    })
+    .on('mouseleave', function() {
+      d3.select(this).attr('fill', PAL.land);
+    });
+
+  // Country borders (internal)
+  gLand.append('path')
+    .datum(topojson.mesh(world, world.objects.countries, (a,b) => a!==b))
+    .attr('d', path)
+    .attr('fill','none')
+    .attr('stroke', PAL.landStroke)
+    .attr('stroke-width', 0.3)
+    .attr('opacity', 0.6);
+}
+
+// ── REDRAW ON RESIZE ──────────────────────────────────────────────────────
+let worldData = null;
+function redraw() {
+  setupProjection();
+  if (worldData) renderGeo(worldData);
+}
+window.addEventListener('resize', () => {
+  clearTimeout(window._rt);
+  window._rt = setTimeout(redraw, 100);
+});
+window.addEventListener('orientationchange', () => setTimeout(redraw, 200));
+
+// ── MAP CLICK ─────────────────────────────────────────────────────────────
+svg.on('click', function(event) {
+  if (!mode) return;
+  const [px, py] = d3.pointer(event);
+  const [lon, lat] = projection.invert([px, py]);
+  const lbl = geoLbl(lat, lon);
+  addUserArc(lon, lat, lbl);
+  if (mode==='from') { fCnt++; document.getElementById('cnt-f').textContent = fCnt; }
+  else               { tCnt++; document.getElementById('cnt-t').textContent = tCnt; }
+  setMode(null);
+});
+
+// Touch
+svg.on('touchstart', function(event) {
+  if (!mode) return;
+  const touch = event.touches[0];
+  const rect = document.getElementById('map-svg').getBoundingClientRect();
+  const px = touch.clientX - rect.left;
+  const py = touch.clientY - rect.top;
+  const [lon, lat] = projection.invert([px, py]);
+  const lbl = geoLbl(lat, lon);
+  addUserArc(lon, lat, lbl);
+  if (mode==='from') { fCnt++; document.getElementById('cnt-f').textContent = fCnt; }
+  else               { tCnt++; document.getElementById('cnt-t').textContent = tCnt; }
+  setMode(null);
+  event.preventDefault();
+}, { passive: false });
+
+// ── MODE ──────────────────────────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-from').classList.toggle('on', m==='from');
+  document.getElementById('btn-to').classList.toggle('on',   m==='to');
+  if      (m==='from') { stBar.textContent='Click or tap the map to pin your origin';      stBar.className='status pic'; }
+  else if (m==='to')   { stBar.textContent='Click or tap the map to pin your destination'; stBar.className='status ric'; }
+  else                 { stBar.textContent='Hover nodes · tap a button to begin';          stBar.className='status'; }
+  document.getElementById('map-svg').style.cursor = m ? 'crosshair' : 'default';
+}
+
+document.getElementById('btn-from').addEventListener('click', () => setMode(mode==='from' ? null : 'from'));
+document.getElementById('btn-to').addEventListener('click',   () => setMode(mode==='to'   ? null : 'to'));
+document.addEventListener('keydown', e => { if (e.key==='Escape') setMode(null); });
+
+// ── LOAD WORLD DATA ───────────────────────────────────────────────────────
+setupProjection();
+
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json')
+  .then(r => r.json())
+  .then(world => {
+    worldData = world;
+    renderGeo(world);
+    drawHistoricalArcs();
+    drawHistNodes();
+  })
+  .catch(() => {
+    // Fallback: render basic ocean background if fetch fails
+    svg.style('background', PAL.ocean);
+    gGrat.append('text')
+      .attr('x', window.innerWidth/2).attr('y', window.innerHeight/2)
+      .attr('text-anchor','middle')
+      .attr('fill','rgba(160,120,60,0.4)')
+      .attr('font-family',"'DM Sans',sans-serif")
+      .attr('font-size','13px')
+      .text('Map requires internet connection to load geography');
+  });
+
+})();
+</script>
+</body>
+</html>
